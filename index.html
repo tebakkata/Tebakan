@@ -3,30 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tebak Kata Indonesia</title>
+<title>Tebak Kata</title>
+
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
 
 <style>
 body{
+  margin:0;
   font-family:Arial,sans-serif;
   background:linear-gradient(135deg,#a1ffce,#faffd1);
   text-align:center;
-  padding:10px;
 }
 #app{
   max-width:520px;
   margin:auto;
   background:#fff;
+  min-height:100vh;
   padding:15px;
-  border-radius:15px;
-  box-shadow:0 10px 20px rgba(0,0,0,.15);
 }
 button{
-  padding:8px 12px;
+  padding:10px 14px;
   border:none;
-  border-radius:8px;
+  border-radius:10px;
   background:#ffd166;
   font-weight:bold;
-  margin:4px;
+  margin:5px;
 }
 .hidden{display:none}
 .keyboard{
@@ -34,43 +36,46 @@ button{
   flex-wrap:wrap;
   justify-content:center;
 }
-.keyboard button{
-  width:36px;
-}
-.word{
-  font-size:28px;
-  letter-spacing:6px;
-  margin:10px 0;
-}
-.wordle-row{
-  display:flex;
-  justify-content:center;
-}
+.keyboard button{width:36px}
+.word{font-size:28px;letter-spacing:6px;margin:10px}
+.wordle-row{display:flex;justify-content:center}
 .cell{
-  width:40px;height:40px;
+  width:42px;height:42px;
   border:2px solid #ccc;
-  margin:2px;
+  margin:3px;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-weight:bold;
   font-size:22px;
+  font-weight:bold;
 }
 .green{background:#06d6a0;color:#fff}
 .yellow{background:#ffd166}
 .gray{background:#ccc}
+input{
+  padding:10px;
+  border-radius:8px;
+  border:1px solid #ccc;
+}
 </style>
 </head>
 
 <body>
 
-<h2>🎮 Tebak Kata Indonesia</h2>
-
 <div id="app">
 
+<h2>🎮 Tebak Kata Indonesia</h2>
+<p id="welcome"></p>
+
+<!-- INPUT NAMA -->
+<div id="nameBox">
+  <input id="nameInput" placeholder="Masukkan nama">
+  <br>
+  <button onclick="saveName()">Mulai</button>
+</div>
+
 <!-- MENU -->
-<div id="menu">
-  <p>Halo, <b id="playerName"></b></p>
+<div id="menu" class="hidden">
   <button onclick="startClassic()">🔤 Classic</button>
   <button onclick="startWordle()">🟩 Wordle</button>
   <button onclick="showLeaderboard()">🏆 Leaderboard</button>
@@ -78,11 +83,10 @@ button{
 
 <!-- CLASSIC -->
 <div id="classic" class="hidden">
-  <p>⏱️ <span id="time">30</span> | ❤️ <span id="lives">5</span> | ⭐ <span id="score">0</span></p>
+  <p>⏱ <span id="time">30</span> | ❤️ <span id="lives">5</span> | ⭐ <span id="score">0</span></p>
   <p id="clue"></p>
   <div class="word" id="word"></div>
   <div class="keyboard" id="ckeyboard"></div>
-  <p id="cmsg"></p>
   <button onclick="backMenu()">⬅ Menu</button>
 </div>
 
@@ -96,24 +100,18 @@ button{
 
 <!-- LEADERBOARD -->
 <div id="leaderboard" class="hidden">
-  <h3>🏆 Leaderboard Online</h3>
+  <h3>🏆 Leaderboard</h3>
   <ol id="board"></ol>
   <button onclick="backMenu()">⬅ Menu</button>
 </div>
 
 </div>
 
-<!-- SOUND -->
-<audio id="click" src="assets/click.mp3"></audio>
-<audio id="win" src="assets/win.mp3"></audio>
-<audio id="lose" src="assets/lose.mp3"></audio>
-
 <!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-/* ================= FIREBASE ================= */
 firebase.initializeApp({
   apiKey: "AIzaSyCVwFEHv2Xv0CGoUgOkV79C5iUqCgL8G0A",
   authDomain: "tebak-kata-86624.firebaseapp.com",
@@ -122,98 +120,89 @@ firebase.initializeApp({
   messagingSenderId: "170123314332",
   appId: "1:170123314332:web:2b4a291cf96e653bbad959"
 });
-const db = firebase.firestore();
+const db=firebase.firestore();
 
-/* ================= GLOBAL ================= */
+/* ========= DATA ========= */
 const words=[
  {w:"KOMPUTER",c:"Alat elektronik"},
  {w:"SEKOLAH",c:"Tempat belajar"},
- {w:"PROGRAM",c:"Instruksi komputer"},
- {w:"INTERNET",c:"Jaringan global"}
+ {w:"PROGRAM",c:"Instruksi komputer"}
 ];
-const wordleWords=["BUKU","HUJAN","ROTI","MEJA","KOPI"];
+const wordleWords=["BUKU","HUJAN","ROTI","MEJA"];
 
+/* ========= UTIL ========= */
 const $=id=>document.getElementById(id);
-const play=id=>$(id).play?.();
-
-let player=localStorage.getItem("player")||prompt("Nama pemain:");
-localStorage.setItem("player",player);
-$("playerName").textContent=player;
-
-/* ================= MENU ================= */
 function hideAll(){
- ["menu","classic","wordle","leaderboard"].forEach(id=>$(id).classList.add("hidden"));
+ ["menu","classic","wordle","leaderboard"].forEach(x=>$(x).classList.add("hidden"));
 }
 function backMenu(){
  hideAll(); $("menu").classList.remove("hidden");
 }
 
-/* ================= CLASSIC MODE ================= */
+/* ========= PLAYER ========= */
+let player=localStorage.getItem("player");
+if(player){
+ $("nameBox").classList.add("hidden");
+ $("menu").classList.remove("hidden");
+ $("welcome").textContent="Halo, "+player+" 👋";
+}
+
+function saveName(){
+ const n=$("nameInput").value.trim();
+ if(!n) return;
+ player=n;
+ localStorage.setItem("player",player);
+ $("welcome").textContent="Halo, "+player+" 👋";
+ $("nameBox").classList.add("hidden");
+ $("menu").classList.remove("hidden");
+}
+
+/* ========= CLASSIC ========= */
 let cword,guessed=[],time,lives,score=0,timer;
 
 function startClassic(){
  hideAll(); $("classic").classList.remove("hidden");
- guessed=[]; score=0;
  nextClassic();
 }
-
 function nextClassic(){
  cword=words[Math.floor(Math.random()*words.length)];
  guessed=[]; time=30; lives=5;
- $("clue").textContent="💡 "+cword.c;
  $("score").textContent=score;
- updateWord();
- createClassicKeyboard();
+ $("clue").textContent="💡 "+cword.c;
+ updateWord(); createKeyboard();
  clearInterval(timer);
- timer=setInterval(()=>{
-  time--; $("time").textContent=time;
-  if(time<=0) endClassic();
- },1000);
+ timer=setInterval(()=>{time--; $("time").textContent=time;if(time<=0) backMenu()},1000);
 }
-
 function updateWord(){
  let d="";
- for(let l of cword.w){
-  d+=guessed.includes(l)?l+" ":"_ ";
- }
+ for(let l of cword.w){d+=guessed.includes(l)?l+" ":"_ "}
  $("word").textContent=d;
  if(!d.includes("_")){
-  play("win");
   score+=time*10;
-  saveScore("classic",score);
+  saveScore(score);
   nextClassic();
  }
 }
-
-function createClassicKeyboard(){
+function createKeyboard(){
  $("ckeyboard").innerHTML="";
  "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(l=>{
   let b=document.createElement("button");
   b.textContent=l;
   b.onclick=()=>{
-   play("click"); b.disabled=true;
-   if(cword.w.includes(l)){guessed.push(l);updateWord();}
-   else{lives--; $("lives").textContent=lives; if(lives<=0) endClassic();}
+   b.disabled=true;
+   if(cword.w.includes(l)){guessed.push(l);updateWord()}
+   else{lives--; $("lives").textContent=lives;if(lives<=0) backMenu()}
   };
   $("ckeyboard").appendChild(b);
  });
 }
 
-function endClassic(){
- clearInterval(timer);
- play("lose");
- $("cmsg").textContent="💀 Game Over";
- saveScore("classic",score);
-}
-
-/* ================= WORDLE MODE ================= */
+/* ========= WORDLE ========= */
 let wAnswer,wRow,wCol,grid=[];
-
 function startWordle(){
  hideAll(); $("wordle").classList.remove("hidden");
  wAnswer=wordleWords[Math.floor(Math.random()*wordleWords.length)];
- wRow=0;wCol=0;grid=[];
- $("grid").innerHTML=""; $("wmsg").textContent="";
+ wRow=0;wCol=0;grid=[];$("grid").innerHTML="";
  for(let r=0;r<6;r++){
   let row=document.createElement("div");row.className="wordle-row";
   let cells=[];
@@ -223,74 +212,51 @@ function startWordle(){
   }
   $("grid").appendChild(row);grid.push(cells);
  }
- createWordleKeyboard();
+ createWKeyboard();
 }
-
-function createWordleKeyboard(){
+function createWKeyboard(){
  $("wkeyboard").innerHTML="";
  "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(l=>{
   let b=document.createElement("button");
   b.textContent=l;
-  b.onclick=()=>{ if(wCol<5){grid[wRow][wCol].textContent=l;wCol++;} };
+  b.onclick=()=>{if(wCol<5){grid[wRow][wCol].textContent=l;wCol++}};
   $("wkeyboard").appendChild(b);
  });
- let del=document.createElement("button");
- del.textContent="⌫";
- del.onclick=()=>{ if(wCol>0){wCol--;grid[wRow][wCol].textContent="";} };
- $("wkeyboard").appendChild(del);
-
  let ok=document.createElement("button");
  ok.textContent="✔";
  ok.onclick=checkWord;
  $("wkeyboard").appendChild(ok);
 }
-
 function checkWord(){
  if(wCol<5) return;
- let guess="";
- for(let i=0;i<5;i++) guess+=grid[wRow][i].textContent;
+ let g="";
+ for(let i=0;i<5;i++) g+=grid[wRow][i].textContent;
  for(let i=0;i<5;i++){
-  if(guess[i]===wAnswer[i]) grid[wRow][i].classList.add("green");
-  else if(wAnswer.includes(guess[i])) grid[wRow][i].classList.add("yellow");
-  else grid[wRow][i].classList.add("gray");
+  grid[wRow][i].classList.add(
+   g[i]==wAnswer[i]?"green":wAnswer.includes(g[i])?"yellow":"gray"
+  );
  }
- if(guess===wAnswer){
-  play("win");
-  $("wmsg").textContent="🎉 Menang!";
-  saveScore("wordle",100);
-  return;
- }
+ if(g==wAnswer){saveScore(100); return}
  wRow++; wCol=0;
- if(wRow===6){
-  play("lose");
-  $("wmsg").textContent="💀 Jawaban: "+wAnswer;
-  saveScore("wordle",0);
- }
+ if(wRow==6) backMenu();
 }
 
-/* ================= LEADERBOARD ================= */
-function saveScore(mode,score){
+/* ========= LEADERBOARD ========= */
+function saveScore(s){
  db.collection("leaderboard").add({
   name:player,
-  mode:mode,
-  score:score,
+  score:s,
   time:firebase.firestore.FieldValue.serverTimestamp()
  });
 }
-
 function showLeaderboard(){
  hideAll(); $("leaderboard").classList.remove("hidden");
- db.collection("leaderboard")
-  .orderBy("score","desc")
-  .limit(10)
-  .onSnapshot(snap=>{
-   let h="";
-   snap.forEach(d=>{
-    let x=d.data();
-    h+=`<li>${x.name} (${x.mode}) - ${x.score}</li>`;
-   });
-   $("board").innerHTML=h;
-  });
+ db.collection("leaderboard").orderBy("score","desc").limit(10)
+ .onSnapshot(s=>{
+  let h="";
+  s.forEach(d=>{let x=d.data();h+=`<li>${x.name} - ${x.score}</li>`});
+  $("board").innerHTML=h;
+ });
 }
 </script>
 
